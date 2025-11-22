@@ -423,9 +423,8 @@ namespace WindowsFormsApp1.Data
             }
         }
 
-        // --- QUẢN LÝ KỆ SÁCH (SHELF) - ĐÃ SỬA ---
+        // --- QUẢN LÝ KỆ SÁCH (SHELF) ---
 
-        // 1. Sửa hàm AddShelf để trả về int (ID của kệ mới)
         public int AddShelf(string shelfName, string description = "")
         {
             string query = @"
@@ -444,7 +443,6 @@ namespace WindowsFormsApp1.Data
                         cmd.Parameters.AddWithValue("@Name", shelfName);
                         cmd.Parameters.AddWithValue("@Desc", (object)description ?? DBNull.Value);
 
-                        // Trả về ID vừa tạo
                         return (int)cmd.ExecuteScalar();
                     }
                 }
@@ -455,12 +453,9 @@ namespace WindowsFormsApp1.Data
             }
         }
 
-        // 2. Thêm hàm AddBookToShelf (Thêm sách vào kệ)
         public void AddBookToShelf(int bookId, int shelfId)
         {
-            // Kiểm tra xem sách đã có trong kệ chưa để tránh trùng
             string checkQuery = "SELECT COUNT(1) FROM KeSach_Sach WHERE MaKeSach = @Sid AND MaSach = @Bid";
-
             string insertQuery = @"
                 INSERT INTO KeSach_Sach (MaKeSach, MaSach, NgayThemVaoKe) 
                 VALUES (@Sid, @Bid, GETDATE())";
@@ -471,16 +466,14 @@ namespace WindowsFormsApp1.Data
                 {
                     conn.Open();
 
-                    // Kiểm tra tồn tại
                     using (var cmdCheck = new SqlCommand(checkQuery, conn))
                     {
                         cmdCheck.Parameters.AddWithValue("@Sid", shelfId);
                         cmdCheck.Parameters.AddWithValue("@Bid", bookId);
                         int count = (int)cmdCheck.ExecuteScalar();
-                        if (count > 0) return; // Đã có rồi thì không thêm nữa
+                        if (count > 0) return;
                     }
 
-                    // Thêm mới
                     using (var cmd = new SqlCommand(insertQuery, conn))
                     {
                         cmd.Parameters.AddWithValue("@Sid", shelfId);
@@ -577,9 +570,28 @@ namespace WindowsFormsApp1.Data
             return GetShelvesList().Select(s => s.Name).ToList();
         }
 
+        public List<Book> GetBooksByShelf(int shelfId)
+        {
+            string query = @"
+                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
+                FROM Sach s 
+                INNER JOIN KeSach_Sach kss ON s.MaSach = kss.MaSach
+                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
+                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
+                WHERE s.MaNguoiDung = @Uid 
+                AND kss.MaKeSach = @Sid
+                AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
+                GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
+                         s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
+                         s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
+                         s.XepHang, s.YeuThich
+                ORDER BY s.NgayThem DESC";
+
+            return ExecuteBookQuery(query, cmd => cmd.Parameters.AddWithValue("@Sid", shelfId));
+        }
+
         // --- PHẦN QUẢN LÝ HIGHLIGHT & NOTE ---
 
-        // 1. Lưu Highlight/Note
         public void AddHighlight(Highlight hl)
         {
             string query = @"
@@ -603,7 +615,6 @@ namespace WindowsFormsApp1.Data
             }
         }
 
-        // 2. Lấy danh sách Highlight (Chỉ những cái Note rỗng)
         public List<Highlight> GetOnlyHighlights(int userId)
         {
             string query = @"
@@ -616,7 +627,6 @@ namespace WindowsFormsApp1.Data
             return ExecuteHighlightQuery(query, userId);
         }
 
-        // 3. Lấy danh sách Note (Những cái có nội dung Note)
         public List<Highlight> GetOnlyNotes(int userId)
         {
             string query = @"
@@ -629,14 +639,12 @@ namespace WindowsFormsApp1.Data
             return ExecuteHighlightQuery(query, userId);
         }
 
-        // 4. Lấy tất cả Highlight của 1 quyển sách (để vẽ lại khi đọc)
         public List<Highlight> GetHighlightsForBook(int bookId)
         {
             string query = "SELECT * FROM GhiChu WHERE MaSach = @Bid";
             return ExecuteHighlightQuery(query, 0, bookId);
         }
 
-        // 5. Helper xử lý chung cho Highlight
         private List<Highlight> ExecuteHighlightQuery(string query, int userId = 0, int bookId = 0)
         {
             var list = new List<Highlight>();
@@ -701,26 +709,50 @@ namespace WindowsFormsApp1.Data
             }
         }
 
-        // Thêm hàm này vào class DataManager
-        public List<Book> GetBooksByShelf(int shelfId)
+        // --- [MỚI] CÁC HÀM LẤY SÁCH THEO ĐIỀU KIỆN (HIGHLIGHT/NOTE) ---
+
+        // 1. Lấy danh sách sách CÓ Highlight
+        public List<Book> GetBooksWithHighlights()
         {
             string query = @"
-        SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
-        FROM Sach s 
-        INNER JOIN KeSach_Sach kss ON s.MaSach = kss.MaSach
-        LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
-        LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
-        WHERE s.MaNguoiDung = @Uid 
-        AND kss.MaKeSach = @Sid
-        AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
-        GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
-                 s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
-                 s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
-                 s.XepHang, s.YeuThich
-        ORDER BY s.NgayThem DESC";
+                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
+                FROM Sach s 
+                -- INNER JOIN: Chỉ lấy sách có tồn tại trong bảng GhiChu
+                INNER JOIN GhiChu g ON s.MaSach = g.MaSach
+                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
+                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
+                WHERE s.MaNguoiDung = @Uid 
+                AND (g.GhiChuCuaNguoiDung IS NULL OR g.GhiChuCuaNguoiDung = '') -- Điều kiện là Highlight
+                AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
+                GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
+                         s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
+                         s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
+                         s.XepHang, s.YeuThich
+                ORDER BY s.TieuDe";
 
-            // Sử dụng lại hàm ExecuteBookQuery có sẵn, thêm tham số @Sid
-            return ExecuteBookQuery(query, cmd => cmd.Parameters.AddWithValue("@Sid", shelfId));
+            return ExecuteBookQuery(query);
+        }
+
+        // 2. Lấy danh sách sách CÓ Ghi chú (Note)
+        public List<Book> GetBooksWithNotes()
+        {
+            string query = @"
+                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
+                FROM Sach s 
+                -- INNER JOIN: Chỉ lấy sách có tồn tại trong bảng GhiChu
+                INNER JOIN GhiChu g ON s.MaSach = g.MaSach
+                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
+                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
+                WHERE s.MaNguoiDung = @Uid 
+                AND (g.GhiChuCuaNguoiDung IS NOT NULL AND g.GhiChuCuaNguoiDung <> '') -- Điều kiện là Note
+                AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
+                GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
+                         s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
+                         s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
+                         s.XepHang, s.YeuThich
+                ORDER BY s.TieuDe";
+
+            return ExecuteBookQuery(query);
         }
     }
 }
