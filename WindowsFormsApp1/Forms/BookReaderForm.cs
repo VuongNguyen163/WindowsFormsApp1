@@ -407,11 +407,13 @@ namespace WindowsFormsApp1.Forms
         private void InitializeFloatingMenu()
         {
             _floatingMenu = new ContextMenuStrip();
+
+            // SỬA ĐOẠN NÀY: Dùng Color.FromArgb để đảm bảo ra mã Hex (#RRGGBB)
             var colors = new[] {
-                (Name: "Vàng", Color: Color.Yellow),
-                (Name: "Xanh Lá", Color: Color.LightGreen),
-                (Name: "Hồng", Color: Color.Pink),
-                (Name: "Xanh Dương", Color: Color.LightBlue)
+                (Name: "Vàng", Color: Color.FromArgb(255, 255, 0)),       // #FFFF00
+                (Name: "Xanh Lá", Color: Color.FromArgb(144, 238, 144)),  // #90EE90 (Thay cho LightGreen)
+                (Name: "Hồng", Color: Color.FromArgb(255, 192, 203)),     // #FFC0CB
+                (Name: "Xanh Dương", Color: Color.FromArgb(173, 216, 230)) // #ADD8E6 (Thay cho LightBlue)
             };
 
             foreach (var c in colors)
@@ -424,6 +426,7 @@ namespace WindowsFormsApp1.Forms
                     g.DrawRectangle(Pens.Gray, 0, 0, 15, 15);
                 }
                 item.Image = bmp;
+                // Lưu ý: Đảm bảo logic CreateHighlight bên dưới xử lý đúng
                 item.Click += (s, e) => CreateHighlight(c.Color);
                 _floatingMenu.Items.Add(item);
             }
