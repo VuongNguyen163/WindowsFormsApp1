@@ -7,7 +7,7 @@ using System.IO;
 using System.ComponentModel;
 using WindowsFormsApp1.Controls;
 using WindowsFormsApp1.Data;
-using WindowsFormsApp1.Forms; // Đảm bảo namespace này tồn tại
+using WindowsFormsApp1.Forms; // Đảm bảo đã import namespace chứa các Form con
 
 namespace WindowsFormsApp1
 {
@@ -40,8 +40,8 @@ namespace WindowsFormsApp1
         private Label totalBooksLabel;
 
         // Auth UI
-        private Button userButton;
-        private Label lblUsername;
+        private Button userButton;      // Avatar tròn
+        private Label lblUsername;      // Tên hiển thị
         private ContextMenuStrip authMenu;
 
         // --- STATE VARIABLES ---
@@ -55,7 +55,7 @@ namespace WindowsFormsApp1
         {
             InitializeMainForm();
 
-            // Mặc định chưa đăng nhập (Guest) - Có thể đổi thành 1 để test luôn user admin
+            // Mặc định chưa đăng nhập (Guest)
             DataManager.Instance.SetCurrentUser(0);
             UpdateUIAuth();
         }
@@ -332,23 +332,6 @@ namespace WindowsFormsApp1
             };
         }
 
-        private Button CreateSidebarSubButton(string text)
-        {
-            return new Button
-            {
-                Text = text,
-                Size = new Size(190, 30),
-                BackColor = Color.Transparent,
-                ForeColor = Color.FromArgb(200, 200, 200),
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 10),
-                TextAlign = ContentAlignment.MiddleLeft,
-                Cursor = Cursors.Hand,
-                FlatAppearance = { BorderSize = 0 },
-                Margin = new Padding(0, 2, 0, 2)
-            };
-        }
-
         #endregion
 
         #region AUTH LOGIC
@@ -485,25 +468,46 @@ namespace WindowsFormsApp1
             btnManage.Click += BtnManageShelf_Click;
             pnlShelfContainer.Controls.Add(btnManage);
 
-            // 3. List Shelves - ĐÃ SỬA ĐỂ BẤM VÀO ĐƯỢC
+            // 3. List Shelves
             var shelves = DataManager.Instance.GetShelvesList();
             foreach (var shelf in shelves)
             {
                 Button btnShelf = CreateSidebarSubButton("   " + shelf.Name);
+
+                // --- SỰ KIỆN CLICK ĐỂ XEM KỆ ---
                 btnShelf.Click += (s, e) => {
+                    // 1. Lưu ID của kệ đang chọn
                     activeShelfId = shelf.Id;
 
-                    // Highlight nút đang chọn
+                    // 2. Đổi màu các nút để biết đang chọn nút nào (Highlight)
                     foreach (Control c in pnlShelfContainer.Controls)
                         if (c is Button b) b.ForeColor = Color.FromArgb(200, 200, 200);
                     btnShelf.ForeColor = Color.White;
 
-                    // Chuyển view sang Shelf và load lại sách
+                    // 3. QUAN TRỌNG: Chuyển chế độ xem sang "Shelf" và tải lại sách
                     currentView = "Shelf";
                     LoadBooks();
                 };
+                // --------------------------------
+
                 pnlShelfContainer.Controls.Add(btnShelf);
             }
+        }
+        private Button CreateSidebarSubButton(string text)
+        {
+            return new Button
+            {
+                Text = text,
+                Size = new Size(190, 30),
+                BackColor = Color.Transparent,
+                ForeColor = Color.FromArgb(200, 200, 200),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Cursor = Cursors.Hand,
+                FlatAppearance = { BorderSize = 0 },
+                Margin = new Padding(0, 2, 0, 2)
+            };
         }
 
         private void SetActiveButton(Button activeBtn)
@@ -520,7 +524,7 @@ namespace WindowsFormsApp1
 
         private void SwitchView(string view)
         {
-            if (_currentUser == null && view != "Books") return;
+            if (_currentUser == null && view != "Books") return; // Chặn chuyển view nếu chưa login (trừ view mặc định)
 
             switch (view)
             {
@@ -550,40 +554,6 @@ namespace WindowsFormsApp1
             }
         }
 
-        private void LoadBooks()
-        {
-            booksPanel.Controls.Clear();
-
-            if (_currentUser == null)
-            {
-                totalBooksLabel.Text = "Vui lòng đăng nhập";
-                return;
-            }
-
-            List<Book> books;
-
-            // --- ĐÃ SỬA LOGIC LOAD SÁCH ---
-            if (currentView == "Trash")
-                books = DataManager.Instance.GetDeletedBooks();
-            else if (currentView == "Favorites")
-                books = DataManager.Instance.GetFavoriteBooks();
-            else if (currentView == "Shelf") // Logic lấy sách theo kệ
-                books = DataManager.Instance.GetBooksByShelf(activeShelfId);
-            else
-                books = DataManager.Instance.GetAllBooks();
-            // ------------------------------
-
-            // Search Filter
-            string query = searchBox.Text.Trim().ToLower();
-            if (!string.IsNullOrEmpty(query))
-            {
-                books = books.Where(b => b.Title.ToLower().Contains(query) || b.Author.ToLower().Contains(query)).ToList();
-            }
-
-            ApplySort(ref books);
-            DisplayBooks(books);
-        }
-
         private void LoadHighlightsView()
         {
             booksPanel.Controls.Clear();
@@ -610,103 +580,6 @@ namespace WindowsFormsApp1
                 Panel card = CreateInfoCard(note, true);
                 booksPanel.Controls.Add(card);
             }
-        }
-
-        // --- ĐÃ KHÔI PHỤC HÀM ShowBookMenu ---
-        private void ShowBookMenu(Book book, BookCard card)
-        {
-            ContextMenuStrip menu = new ContextMenuStrip
-            {
-                BackColor = Color.FromArgb(45, 45, 48),
-                ForeColor = Color.White
-            };
-
-            if (!book.IsDeleted)
-            {
-                // ADD TO SHELF FUNCTION
-                menu.Items.Add("Add to shelf").Click += (s, e) =>
-                {
-                    using (var dlg = new WindowsFormsApp1.Forms.AddToShelfDialog())
-                    {
-                        if (dlg.ShowDialog() == DialogResult.OK)
-                        {
-                            try
-                            {
-                                int targetShelfId = -1;
-
-                                // Nếu người dùng nhập tên kệ mới
-                                if (!string.IsNullOrEmpty(dlg.NewShelfName))
-                                {
-                                    targetShelfId = DataManager.Instance.AddShelf(dlg.NewShelfName);
-                                    RefreshSidebarShelves(); // Refresh sidebar ngay
-                                }
-                                // Nếu người dùng chọn kệ cũ
-                                else
-                                {
-                                    targetShelfId = dlg.SelectedShelfId;
-                                }
-
-                                if (targetShelfId != -1)
-                                {
-                                    DataManager.Instance.AddBookToShelf(book.Id, targetShelfId);
-                                    MessageBox.Show("Đã thêm sách vào kệ thành công!", "Thành công", MessageBoxButtons.OK, MessageBoxIcon.Information);
-                                }
-                            }
-                            catch (Exception ex)
-                            {
-                                MessageBox.Show("Lỗi: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                            }
-                        }
-                    }
-                };
-
-                menu.Items.Add("Toggle Favorite").Click += (s, e) =>
-                {
-                    DataManager.Instance.ToggleFavorite(book.Id);
-                    if (currentView == "Books" || currentView == "Shelf") LoadBooks();
-                    else if (currentView == "Favorites") LoadBooks();
-                };
-
-                menu.Items.Add("Move to Trash").Click += (s, e) =>
-                {
-                    DataManager.Instance.DeleteBook(book.Id);
-                    LoadBooks();
-                };
-            }
-            else
-            {
-                menu.Items.Add("Restore").Click += (s, e) =>
-                {
-                    DataManager.Instance.RestoreBook(book.Id);
-                    LoadBooks();
-                };
-
-                menu.Items.Add("Delete Permanently").Click += (s, e) =>
-                {
-                    if (MessageBox.Show("Xóa vĩnh viễn sách này?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
-                    {
-                        DataManager.Instance.PermanentlyDeleteBook(book.Id);
-                        LoadBooks();
-                    }
-                };
-            }
-            menu.Show(card, new Point(0, card.Height));
-        }
-
-        private void OpenBook(Book book)
-        {
-            try
-            {
-                if (!File.Exists(book.FilePath))
-                {
-                    MessageBox.Show($"File sách không tồn tại:\n{book.FilePath}", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    return;
-                }
-                BookReaderForm readerForm = new BookReaderForm(book);
-                readerForm.ShowDialog();
-                LoadBooks();
-            }
-            catch (Exception ex) { MessageBox.Show($"Lỗi mở sách: {ex.Message}"); }
         }
 
         private Panel CreateInfoCard(Highlight item, bool isNote)
@@ -794,6 +667,54 @@ namespace WindowsFormsApp1
             return card;
         }
 
+        private void LoadBooks()
+        {
+            // 1. Xóa danh sách cũ trên giao diện
+            booksPanel.Controls.Clear();
+
+            // 2. Kiểm tra đăng nhập
+            if (_currentUser == null)
+            {
+                totalBooksLabel.Text = "Vui lòng đăng nhập";
+                return;
+            }
+
+            List<Book> books;
+
+            // 3. Lấy danh sách sách dựa theo chế độ xem hiện tại (currentView)
+            if (currentView == "Trash")
+            {
+                books = DataManager.Instance.GetDeletedBooks();
+            }
+            else if (currentView == "Favorites")
+            {
+                books = DataManager.Instance.GetFavoriteBooks();
+            }
+            else if (currentView == "Shelf") // <--- Logic mới cho kệ sách
+            {
+                // Lấy sách thuộc kệ đang chọn (activeShelfId được gán khi bấm nút bên trái)
+                books = DataManager.Instance.GetBooksByShelf(activeShelfId);
+            }
+            else
+            {
+                // Mặc định: Lấy tất cả sách (All Books)
+                books = DataManager.Instance.GetAllBooks();
+            }
+
+            // 4. Lọc theo từ khóa tìm kiếm (Search)
+            string query = searchBox.Text.Trim().ToLower();
+            if (!string.IsNullOrEmpty(query))
+            {
+                books = books.Where(b =>
+                    b.Title.ToLower().Contains(query) ||
+                    b.Author.ToLower().Contains(query)
+                ).ToList();
+            }
+
+            // 5. Sắp xếp và Hiển thị lên giao diện
+            ApplySort(ref books);
+            DisplayBooks(books);
+        }
         private void ApplySort(ref List<Book> books)
         {
             switch (currentSortBy)
@@ -807,36 +728,6 @@ namespace WindowsFormsApp1
                     books = sortAscending ? books.OrderBy(b => b.Author).ToList() : books.OrderByDescending(b => b.Author).ToList(); break;
                 case "Reading progress":
                     books = sortAscending ? books.OrderBy(b => b.Progress).ToList() : books.OrderByDescending(b => b.Progress).ToList(); break;
-                default:
-                    books = books.OrderByDescending(b => b.DateAdded).ToList(); break;
-            }
-        }
-
-        private void DisplayBooks(List<Book> books)
-        {
-            booksPanel.SuspendLayout();
-            foreach (var book in books)
-            {
-                var bookCard = new BookCard { Book = book, Margin = new Padding(10) };
-                bookCard.BookClicked += (s, e) => OpenBook(book);
-                bookCard.MenuClicked += (s, e) => ShowBookMenu(book, bookCard);
-                booksPanel.Controls.Add(bookCard);
-            }
-            booksPanel.ResumeLayout();
-            totalBooksLabel.Text = $"Total {books.Count} books";
-        }
-
-        #endregion
-
-        #region EVENT HANDLERS (Sort, Import, Scan)
-
-        private void SearchBox_TextChanged(object sender, EventArgs e) => LoadBooks();
-
-        private void BtnAddShelf_Click(object sender, EventArgs e)
-        {
-            if (_currentUser == null)
-            {
-                MessageBox.Show("Vui lòng đăng nhập để tạo kệ sách!", "Yêu cầu", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 return;
             }
 
