@@ -621,10 +621,11 @@ namespace WindowsFormsApp1
                 ForeColor = Color.White
             };
 
+            // Chỉ hiện các chức năng chính khi sách chưa bị xóa
             if (!book.IsDeleted)
             {
-                // ADD TO SHELF FUNCTION
-                menu.Items.Add("Add to shelf").Click += (s, e) =>
+                // 1. Add to Shelf (Thêm vào kệ)
+                menu.Items.Add("Thêm vào kệ").Click += (s, e) =>
                 {
                     using (var dlg = new WindowsFormsApp1.Forms.AddToShelfDialog())
                     {
@@ -634,13 +635,13 @@ namespace WindowsFormsApp1
                             {
                                 int targetShelfId = -1;
 
-                                // Nếu người dùng nhập tên kệ mới
+                                // Trường hợp A: Tạo kệ mới
                                 if (!string.IsNullOrEmpty(dlg.NewShelfName))
                                 {
                                     targetShelfId = DataManager.Instance.AddShelf(dlg.NewShelfName);
-                                    RefreshSidebarShelves(); // Refresh sidebar ngay
+                                    RefreshSidebarShelves();
                                 }
-                                // Nếu người dùng chọn kệ cũ
+                                // Trường hợp B: Chọn kệ có sẵn
                                 else
                                 {
                                     targetShelfId = dlg.SelectedShelfId;
@@ -660,36 +661,75 @@ namespace WindowsFormsApp1
                     }
                 };
 
-                menu.Items.Add("Toggle Favorite").Click += (s, e) =>
+                // --- 2. CHỨC NĂNG MỚI: LOCATE IN FOLDER (MỞ THƯ MỤC) ---
+                menu.Items.Add("Mở thư mục chứa file").Click += (s, e) =>
+                {
+                    try
+                    {
+                        if (File.Exists(book.FilePath))
+                        {
+                            // Lệnh này mở Explorer và tự động bôi đen file đó
+                            System.Diagnostics.Process.Start("explorer.exe", $"/select, \"{book.FilePath}\"");
+                        }
+                        else
+                        {
+                            MessageBox.Show("File không còn tồn tại trong máy tính!", "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        MessageBox.Show("Không thể mở thư mục: " + ex.Message, "Lỗi", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                };
+                // -------------------------------------------------------
+
+                // 3. Toggle Favorite
+                string favText = book.IsFavorite ? "Bỏ thích" : "Yêu thích";
+                menu.Items.Add(favText).Click += (s, e) =>
                 {
                     DataManager.Instance.ToggleFavorite(book.Id);
+                    // Tải lại view hiện tại để cập nhật giao diện
                     if (currentView == "Books" || currentView == "Shelf") LoadBooks();
                     else if (currentView == "Favorites") LoadBooks();
                 };
 
-                menu.Items.Add("Move to Trash").Click += (s, e) =>
+                // 4. Edit Info
+                menu.Items.Add("Sửa thông tin").Click += (s, e) =>
+                {
+                    MessageBox.Show("Chức năng đang phát triển!", "Thông báo");
+                };
+
+                // 5. Move to Trash
+                var delItem = menu.Items.Add("Chuyển vào thùng rác");
+                delItem.ForeColor = Color.Red;
+                delItem.Click += (s, e) =>
                 {
                     DataManager.Instance.DeleteBook(book.Id);
                     LoadBooks();
                 };
             }
-            else
+            else // Menu cho sách trong thùng rác
             {
-                menu.Items.Add("Restore").Click += (s, e) =>
+                // Restore
+                menu.Items.Add("Khôi phục").Click += (s, e) =>
                 {
                     DataManager.Instance.RestoreBook(book.Id);
-                    LoadBooks();
+                    LoadBooks(); // LoadBooks giờ đã xử lý cả LoadTrashBooks bên trong
                 };
 
-                menu.Items.Add("Delete Permanently").Click += (s, e) =>
+                // Delete Permanently
+                var del = menu.Items.Add("Xóa vĩnh viễn");
+                del.ForeColor = Color.Red;
+                del.Click += (s, e) =>
                 {
-                    if (MessageBox.Show("Xóa vĩnh viễn sách này?", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
+                    if (MessageBox.Show("Xóa vĩnh viễn sách này? Không thể hoàn tác.", "Xác nhận", MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
                     {
                         DataManager.Instance.PermanentlyDeleteBook(book.Id);
                         LoadBooks();
                     }
                 };
             }
+
             menu.Show(card, new Point(0, card.Height));
         }
 
