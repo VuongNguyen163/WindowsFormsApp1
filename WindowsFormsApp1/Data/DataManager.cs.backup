@@ -5,7 +5,6 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Linq;
 using System.Data;
-using System.Windows.Forms; // Thêm để dùng MessageBox
 
 namespace WindowsFormsApp1.Data
 {
@@ -89,7 +88,7 @@ namespace WindowsFormsApp1.Data
             }
             catch (Exception ex)
             {
-                MessageBox.Show("Lỗi đăng nhập: " + ex.Message);
+                System.Windows.Forms.MessageBox.Show("Lỗi đăng nhập: " + ex.Message);
             }
             return null;
         }
@@ -103,7 +102,7 @@ namespace WindowsFormsApp1.Data
 
             string hashedPassword = HashPassword(password);
             string query = @"
-                INSERT INTO NguoiDung (TenDangNhap, MatKhauHash, TenHienThi, Email, NgayTao) 
+                INSERT INTO NguoiDung (TenDangNhap, MatKhauHash, TenHienThi, Email, NgayTao)
                 VALUES (@User, @Pass, @Name, @Email, GETDATE());
                 SELECT CAST(SCOPE_IDENTITY() as int);";
 
@@ -157,10 +156,10 @@ namespace WindowsFormsApp1.Data
         public List<Book> GetAllBooks()
         {
             string query = @"
-                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
-                FROM Sach s 
-                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
-                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
+                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia
+                FROM Sach s
+                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach
+                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia
                 WHERE s.MaNguoiDung = @Uid 
                 AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
                 GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
@@ -175,12 +174,12 @@ namespace WindowsFormsApp1.Data
         public List<Book> GetDeletedBooks()
         {
             string query = @"
-                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
-                FROM Sach s 
+                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia
+                FROM Sach s
                 INNER JOIN ThungRac tr ON s.MaSach = tr.MaSach
-                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
-                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
-                WHERE s.MaNguoiDung = @Uid 
+                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach
+                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia
+                WHERE s.MaNguoiDung = @Uid
                 GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
                          s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
                          s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
@@ -194,10 +193,10 @@ namespace WindowsFormsApp1.Data
         public List<Book> GetFavoriteBooks()
         {
             string query = @"
-                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
-                FROM Sach s 
-                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
-                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
+                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia
+                FROM Sach s
+                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach
+                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia
                 WHERE s.MaNguoiDung = @Uid AND s.YeuThich = 1
                 AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
                 GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, s.XepHang, s.YeuThich";
@@ -205,27 +204,7 @@ namespace WindowsFormsApp1.Data
             return ExecuteBookQuery(query);
         }
 
-        public Book GetBookById(int bookId)
-        {
-            string query = @"
-                SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
-                FROM Sach s 
-                LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
-                LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
-                WHERE s.MaNguoiDung = @Uid 
-                AND s.MaSach = @Bid
-                AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
-                GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
-                         s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
-                         s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
-                         s.XepHang, s.YeuThich";
-
-            var list = ExecuteBookQuery(query, cmd => cmd.Parameters.AddWithValue("@Bid", bookId));
-            return list.FirstOrDefault();
-        }
-
-        // Helper thực thi query lấy danh sách sách, hỗ trợ thêm tham số động
-        private List<Book> ExecuteBookQuery(string query, Action<SqlCommand> addParameters = null)
+        private List<Book> ExecuteBookQuery(string query)
         {
             var list = new List<Book>();
             try
@@ -236,8 +215,6 @@ namespace WindowsFormsApp1.Data
                     using (var cmd = new SqlCommand(query, conn))
                     {
                         cmd.Parameters.AddWithValue("@Uid", currentUserId);
-                        addParameters?.Invoke(cmd); // Thêm tham số nếu có (ví dụ @Bid)
-
                         using (var reader = cmd.ExecuteReader())
                         {
                             while (reader.Read())
@@ -283,7 +260,7 @@ namespace WindowsFormsApp1.Data
                     try
                     {
                         string insertSach = @"
-                            INSERT INTO Sach (MaNguoiDung, TieuDe, MoTa, MaMD5, DuongDanAnhBia, DinhDang, KichThuocKB, TongSoTrang, DuongDanFile, NgayThem, YeuThich) 
+                            INSERT INTO Sach (MaNguoiDung, TieuDe, MoTa, MaMD5, DuongDanAnhBia, DinhDang, KichThuocKB, TongSoTrang, DuongDanFile, NgayThem, YeuThich)
                             VALUES (@Uid, @Title, @Desc, @MD5, @Cover, @Fmt, @Size, @Pages, @Path, @Date, @Fav);
                             SELECT CAST(SCOPE_IDENTITY() as int);";
 
@@ -368,275 +345,20 @@ namespace WindowsFormsApp1.Data
         }
 
         public void ToggleFavorite(int bookId)
-        {
-            string query = "UPDATE Sach SET YeuThich = CASE WHEN YeuThich = 1 THEN 0 ELSE 1 END WHERE MaSach = @Id";
-            ExecuteSimpleNonQuery(query, "@Id", bookId);
-        }
-
-        public bool IsBookExists(string filePath)
-        {
-            string query = @"
-                SELECT COUNT(1) 
-                FROM Sach 
-                WHERE DuongDanFile = @Path 
-                AND MaNguoiDung = @Uid 
-                AND MaSach NOT IN (SELECT MaSach FROM ThungRac)";
-
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Path", filePath);
-                        cmd.Parameters.AddWithValue("@Uid", currentUserId);
-                        int count = (int)cmd.ExecuteScalar();
-                        return count > 0;
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Lỗi kiểm tra sách: " + ex.Message);
-                return false;
-            }
-        }
-
-        private void ExecuteSimpleNonQuery(string query, string pName, object pVal)
-        {
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue(pName, pVal);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Lỗi thao tác: " + ex.Message);
-            }
-        }
-
-        // --- QUẢN LÝ KỆ SÁCH (SHELF) - ĐÃ SỬA ---
-
-        // 1. Sửa hàm AddShelf để trả về int (ID của kệ mới)
-        public int AddShelf(string shelfName, string description = "")
-        {
-            string query = @"
-                INSERT INTO KeSach (MaNguoiDung, TenKeSach, MoTa, NgayTao) 
-                VALUES (@Uid, @Name, @Desc, GETDATE());
-                SELECT CAST(SCOPE_IDENTITY() as int);";
-
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Uid", currentUserId);
-                        cmd.Parameters.AddWithValue("@Name", shelfName);
-                        cmd.Parameters.AddWithValue("@Desc", (object)description ?? DBNull.Value);
-
-                        // Trả về ID vừa tạo
-                        return (int)cmd.ExecuteScalar();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Lỗi tạo kệ sách: " + ex.Message);
-            }
-        }
-
-        // 2. Thêm hàm AddBookToShelf (Thêm sách vào kệ)
-        public void AddBookToShelf(int bookId, int shelfId)
-        {
-            // Kiểm tra xem sách đã có trong kệ chưa để tránh trùng
-            string checkQuery = "SELECT COUNT(1) FROM KeSach_Sach WHERE MaKeSach = @Sid AND MaSach = @Bid";
-
-            string insertQuery = @"
-                INSERT INTO KeSach_Sach (MaKeSach, MaSach, NgayThemVaoKe) 
-                VALUES (@Sid, @Bid, GETDATE())";
-
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-
-                    // Kiểm tra tồn tại
-                    using (var cmdCheck = new SqlCommand(checkQuery, conn))
-                    {
-                        cmdCheck.Parameters.AddWithValue("@Sid", shelfId);
-                        cmdCheck.Parameters.AddWithValue("@Bid", bookId);
-                        int count = (int)cmdCheck.ExecuteScalar();
-                        if (count > 0) return; // Đã có rồi thì không thêm nữa
-                    }
-
-                    // Thêm mới
-                    using (var cmd = new SqlCommand(insertQuery, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Sid", shelfId);
-                        cmd.Parameters.AddWithValue("@Bid", bookId);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Lỗi thêm sách vào kệ: " + ex.Message);
-            }
-        }
-
-        public List<Shelf> GetShelvesList()
-        {
-            var list = new List<Shelf>();
-            string query = "SELECT MaKeSach, TenKeSach, MoTa FROM KeSach WHERE MaNguoiDung = @Uid";
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Uid", currentUserId);
-                        using (var reader = cmd.ExecuteReader())
-                        {
-                            while (reader.Read())
-                            {
-                                list.Add(new Shelf
-                                {
-                                    Id = reader.GetInt32(0),
-                                    Name = reader.GetString(1),
-                                    Description = reader.IsDBNull(2) ? "" : reader.GetString(2),
-                                    UserId = currentUserId
-                                });
-                            }
-                        }
-                    }
-                }
-            }
-            catch { }
-            return list;
-        }
-
-        public void RenameShelf(int shelfId, string newName)
-        {
-            string query = "UPDATE KeSach SET TenKeSach = @Name WHERE MaKeSach = @Id AND MaNguoiDung = @Uid";
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Name", newName);
-                        cmd.Parameters.AddWithValue("@Id", shelfId);
-                        cmd.Parameters.AddWithValue("@Uid", currentUserId);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                throw new Exception("Lỗi đổi tên kệ: " + ex.Message);
-            }
-        }
-
-        public void DeleteShelf(int shelfId)
-        {
-            string query = "DELETE FROM KeSach WHERE MaKeSach = @Id AND MaNguoiDung = @Uid";
-            try
-            {
-                using (var conn = DatabaseConnection.Instance.GetConnection())
-                {
-                    conn.Open();
-                    using (var cmd = new SqlCommand(query, conn))
-                    {
-                        cmd.Parameters.AddWithValue("@Id", shelfId);
-                        cmd.Parameters.AddWithValue("@Uid", currentUserId);
-                        cmd.ExecuteNonQuery();
-                    }
-                }
-            }
-            catch (Exception ex)
-            {
-                MessageBox.Show("Lỗi xóa kệ: " + ex.Message);
-            }
-        }
-
-        public List<string> GetShelves()
-        {
-            return GetShelvesList().Select(s => s.Name).ToList();
-        }
-
-        // --- PHẦN QUẢN LÝ HIGHLIGHT & NOTE ---
-
-        // 1. Lưu Highlight/Note
-        public void AddHighlight(Highlight hl)
-        {
-            string query = @"
-                INSERT INTO GhiChu (MaSach, NoiDungTrichDan, GhiChuCuaNguoiDung, MauSac, ViTriCFI, NgayTao) 
-                VALUES (@Bid, @Text, @Note, @Color, @Pos, GETDATE())";
-
-            string positionData = $"{hl.ChapterIndex}|{hl.StartIndex}|{hl.Length}";
-
-            using (var conn = DatabaseConnection.Instance.GetConnection())
-            {
-                conn.Open();
-                using (var cmd = new SqlCommand(query, conn))
-                {
-                    cmd.Parameters.AddWithValue("@Bid", hl.BookId);
-                    cmd.Parameters.AddWithValue("@Text", hl.SelectedText);
-                    cmd.Parameters.AddWithValue("@Note", (object)hl.Note ?? DBNull.Value);
-                    cmd.Parameters.AddWithValue("@Color", hl.ColorHex);
-                    cmd.Parameters.AddWithValue("@Pos", positionData);
-                    cmd.ExecuteNonQuery();
-                }
-            }
-        }
-
-        // 2. Lấy danh sách Highlight (Chỉ những cái Note rỗng)
-        public List<Highlight> GetOnlyHighlights(int userId)
-        {
-            string query = @"
-                SELECT g.*, s.TieuDe, s.DuongDanFile 
-                FROM GhiChu g 
-                JOIN Sach s ON g.MaSach = s.MaSach 
-                WHERE s.MaNguoiDung = @Uid 
-                AND (g.GhiChuCuaNguoiDung IS NULL OR g.GhiChuCuaNguoiDung = '')
-                ORDER BY g.NgayTao DESC";
-            return ExecuteHighlightQuery(query, userId);
-        }
-
-        // 3. Lấy danh sách Note (Những cái có nội dung Note)
-        public List<Highlight> GetOnlyNotes(int userId)
-        {
-            string query = @"
-                SELECT g.*, s.TieuDe, s.DuongDanFile 
-                FROM GhiChu g 
-                JOIN Sach s ON g.MaSach = s.MaSach 
+                FROM GhiChu g
+                JOIN Sach s ON g.MaSach = s.MaSach
                 WHERE s.MaNguoiDung = @Uid 
                 AND g.GhiChuCuaNguoiDung <> '' 
                 ORDER BY g.NgayTao DESC";
             return ExecuteHighlightQuery(query, userId);
         }
 
-        // 4. Lấy tất cả Highlight của 1 quyển sách (để vẽ lại khi đọc)
         public List<Highlight> GetHighlightsForBook(int bookId)
         {
             string query = "SELECT * FROM GhiChu WHERE MaSach = @Bid";
             return ExecuteHighlightQuery(query, 0, bookId);
         }
 
-        // 5. Helper xử lý chung cho Highlight
         private List<Highlight> ExecuteHighlightQuery(string query, int userId = 0, int bookId = 0)
         {
             var list = new List<Highlight>();
@@ -701,26 +423,10 @@ namespace WindowsFormsApp1.Data
             }
         }
 
-        // Thêm hàm này vào class DataManager
-        public List<Book> GetBooksByShelf(int shelfId)
+        public Book GetBookById(int bookId)
         {
-            string query = @"
-        SELECT s.*, STRING_AGG(tg.TenTacGia, ', ') AS DanhSachTacGia 
-        FROM Sach s 
-        INNER JOIN KeSach_Sach kss ON s.MaSach = kss.MaSach
-        LEFT JOIN Sach_TacGia stg ON s.MaSach = stg.MaSach 
-        LEFT JOIN TacGia tg ON stg.MaTacGia = tg.MaTacGia 
-        WHERE s.MaNguoiDung = @Uid 
-        AND kss.MaKeSach = @Sid
-        AND s.MaSach NOT IN (SELECT MaSach FROM ThungRac)
-        GROUP BY s.MaSach, s.MaNguoiDung, s.MaNhaXuatBan, s.TieuDe, s.MoTa, 
-                 s.MaMD5, s.DuongDanAnhBia, s.DinhDang, s.KichThuocKB, 
-                 s.TongSoTrang, s.DuongDanFile, s.NgayThem, s.TrangHienTai, 
-                 s.XepHang, s.YeuThich
-        ORDER BY s.NgayThem DESC";
-
-            // Sử dụng lại hàm ExecuteBookQuery có sẵn, thêm tham số @Sid
-            return ExecuteBookQuery(query, cmd => cmd.Parameters.AddWithValue("@Sid", shelfId));
+            var list = GetAllBooks();
+            return list.FirstOrDefault(b => b.Id == bookId);
         }
     }
 }

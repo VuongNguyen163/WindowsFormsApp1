@@ -161,7 +161,25 @@ CREATE TABLE DanhDauTrang (
 
 PRINT 'HOÀN THÀNH TẠO TẤT CẢ CÁC BẢNG!'
 GO
+-- Tạo bảng VT_DocSach
+CREATE TABLE VT_DocSach (
+    MaVTDoc INT IDENTITY(1,1) PRIMARY KEY,
+    MaSach INT NOT NULL,
+    MaNguoiDung INT NOT NULL,
+    SoChap INT NOT NULL DEFAULT 0,
+    ViTriTrongChap INT NOT NULL DEFAULT 0,
+    NgayCapNhat DATETIME NOT NULL DEFAULT GETDATE(),
+    CONSTRAINT FK_VTDoc_Sach FOREIGN KEY (MaSach) REFERENCES Sach(MaSach) ON DELETE CASCADE,
+    CONSTRAINT FK_VTDoc_NguoiDung FOREIGN KEY (MaNguoiDung) REFERENCES NguoiDung(MaNguoiDung) ON DELETE CASCADE,
+    CONSTRAINT UK_VTDoc UNIQUE (MaSach, MaNguoiDung)
+);
 
+-- Tạo Index
+CREATE INDEX IX_VTDoc_MaSach ON VT_DocSach(MaSach);
+CREATE INDEX IX_VTDoc_MaNguoiDung ON VT_DocSach(MaNguoiDung);
+
+PRINT 'Bảng VT_DocSach đã được tạo thành công!';
+GO
 -- =============================================
 -- PHẦN 2: CHÈN DỮ LIỆU MẪU
 -- =============================================

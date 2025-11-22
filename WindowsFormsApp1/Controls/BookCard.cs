@@ -2,160 +2,160 @@
 using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
+using WindowsFormsApp1.Data; // <--- QUAN TRỌNG: Phải import namespace này để dùng được class Book
 
 namespace WindowsFormsApp1.Controls
 {
-    public class BookCard : UserControl
+    public partial class BookCard : UserControl
     {
-        private Book book;
-        private PictureBox coverImage;
+        // Field private đặt tên có dấu gạch dưới để chuẩn coding convention
+        private Book _book;
+
+        // Định nghĩa các Event để MainForm có thể bắt sự kiện
+        public event EventHandler BookClicked;
+        public event EventHandler MenuClicked;
+
+        // Các Control giao diện
+        private PictureBox coverBox;
         private Label titleLabel;
         private Label progressLabel;
         private Button menuButton;
-        private Panel hoverPanel;
+        private Panel infoPanel;
+
+        public BookCard()
+        {
+            InitializeCustomComponents();
+
+            // Sự kiện click vào toàn bộ thẻ
+            this.Click += (s, e) => BookClicked?.Invoke(this, e);
+            this.Cursor = Cursors.Hand;
+            this.BackColor = Color.Transparent;
+            this.Size = new Size(150, 240);
+            this.Margin = new Padding(15); // Tăng margin để thoáng hơn
+        }
 
         public Book Book
         {
-            get { return book; }
+            get { return _book; }
             set
             {
-                book = value;
+                _book = value;
                 UpdateDisplay();
             }
         }
 
-        public event EventHandler BookClicked;
-        public event EventHandler MenuClicked;
-
-        public BookCard()
-        {
-            InitializeComponents();
-        }
-
-        private void InitializeComponents()
-        {
-            this.Size = new Size(150, 240);
-            this.BackColor = Color.FromArgb(45, 45, 48);
-            this.Cursor = Cursors.Hand;
-            this.Padding = new Padding(5);
-
-            coverImage = new PictureBox
-            {
-                Size = new Size(140, 180),
-                Location = new Point(5, 5),
-                SizeMode = PictureBoxSizeMode.Zoom,
-                BackColor = Color.FromArgb(60, 60, 63)
-            };
-            coverImage.Click += OnBookClicked;
-
-            titleLabel = new Label
-            {
-                Location = new Point(5, 190),
-                Size = new Size(140, 30),
-                ForeColor = Color.White,
-                Font = new Font("Segoe UI", 9, FontStyle.Regular),
-                TextAlign = ContentAlignment.TopLeft,
-                AutoEllipsis = true
-            };
-            titleLabel.Click += OnBookClicked;
-
-            progressLabel = new Label
-            {
-                Location = new Point(5, 220),
-                Size = new Size(100, 15),
-                ForeColor = Color.FromArgb(150, 150, 150),
-                Font = new Font("Segoe UI", 8, FontStyle.Regular),
-                Text = "0%"
-            };
-
-            menuButton = new Button
-            {
-                Location = new Point(105, 220),
-                Size = new Size(40, 15),
-                Text = "•••",
-                ForeColor = Color.White,
-                BackColor = Color.Transparent,
-                FlatStyle = FlatStyle.Flat,
-                Font = new Font("Segoe UI", 8, FontStyle.Bold),
-                Cursor = Cursors.Hand
-            };
-            menuButton.FlatAppearance.BorderSize = 0;
-            menuButton.Click += OnMenuClicked;
-
-            hoverPanel = new Panel
-            {
-                Size = this.Size,
-                Location = new Point(0, 0),
-                BackColor = Color.FromArgb(30, 255, 255, 255),
-                Visible = false
-            };
-
-            this.Controls.Add(hoverPanel);
-            this.Controls.Add(coverImage);
-            this.Controls.Add(titleLabel);
-            this.Controls.Add(progressLabel);
-            this.Controls.Add(menuButton);
-
-            this.MouseEnter += (s, e) => hoverPanel.Visible = true;
-            this.MouseLeave += (s, e) => hoverPanel.Visible = false;
-        }
-
         private void UpdateDisplay()
         {
-            if (book == null) return;
+            if (_book == null) return;
 
-            titleLabel.Text = book.Title;
-            progressLabel.Text = book.GetProgressText();
+            // 1. Hiển thị Title
+            titleLabel.Text = _book.Title;
 
-            if (!string.IsNullOrEmpty(book.CoverImagePath) && File.Exists(book.CoverImagePath))
+            // 2. Hiển thị Tiến độ
+            if (_book.TotalPages > 0)
+            {
+                progressLabel.Text = $"{_book.Progress:0.00}%";
+            }
+            else
+            {
+                progressLabel.Text = "0.00%";
+            }
+
+            // 3. Hiển thị Ảnh bìa
+            if (!string.IsNullOrEmpty(_book.CoverImagePath) && File.Exists(_book.CoverImagePath))
             {
                 try
                 {
-                    coverImage.Image = Image.FromFile(book.CoverImagePath);
+                    using (var fs = new FileStream(_book.CoverImagePath, FileMode.Open, FileAccess.Read))
+                    {
+                        coverBox.Image = Image.FromStream(fs);
+                    }
                 }
                 catch
                 {
-                    SetDefaultCover();
+                    coverBox.Image = null;
                 }
             }
             else
             {
-                SetDefaultCover();
+                coverBox.Image = null;
             }
         }
 
-        private void SetDefaultCover()
+        private void InitializeCustomComponents()
         {
-            Bitmap defaultCover = new Bitmap(140, 180);
-            using (Graphics g = Graphics.FromImage(defaultCover))
+            // 1. Cover Image
+            coverBox = new PictureBox
             {
-                g.Clear(Color.FromArgb(60, 60, 63));
-                g.DrawString(book?.Title ?? "No Title",
-                    new Font("Segoe UI", 12, FontStyle.Bold),
-                    Brushes.White,
-                    new RectangleF(10, 80, 120, 80),
-                    new StringFormat { Alignment = StringAlignment.Center });
-            }
-            coverImage.Image = defaultCover;
-        }
+                Dock = DockStyle.Top,
+                Height = 190,
+                SizeMode = PictureBoxSizeMode.StretchImage,
+                BackColor = Color.FromArgb(60, 60, 60) // Placeholder color
+            };
+            coverBox.Click += (s, e) => BookClicked?.Invoke(this, e);
 
-        private void OnBookClicked(object sender, EventArgs e)
-        {
-            BookClicked?.Invoke(this, EventArgs.Empty);
-        }
-
-        private void OnMenuClicked(object sender, EventArgs e)
-        {
-            MenuClicked?.Invoke(this, EventArgs.Empty);
-        }
-
-        protected override void Dispose(bool disposing)
-        {
-            if (disposing)
+            // 2. Info Panel
+            infoPanel = new Panel
             {
-                coverImage?.Image?.Dispose();
-            }
-            base.Dispose(disposing);
+                Dock = DockStyle.Fill,
+                Padding = new Padding(0, 5, 0, 0)
+            };
+
+            // 3. Title
+            titleLabel = new Label
+            {
+                Dock = DockStyle.Top,
+                Height = 20,
+                Font = new Font("Segoe UI", 10, FontStyle.Regular),
+                ForeColor = Color.White,
+                AutoEllipsis = true,
+                Text = "Book Title"
+            };
+            titleLabel.Click += (s, e) => BookClicked?.Invoke(this, e);
+
+            // 4. Bottom Row (Progress + Menu)
+            Panel bottomRow = new Panel
+            {
+                Dock = DockStyle.Top,
+                Height = 20
+            };
+
+            // Progress
+            progressLabel = new Label
+            {
+                Dock = DockStyle.Left,
+                AutoSize = true,
+                Font = new Font("Segoe UI", 9, FontStyle.Regular),
+                ForeColor = Color.Gray,
+                Text = "0.00%",
+                TextAlign = ContentAlignment.MiddleLeft
+            };
+
+            // Menu Button
+            menuButton = new Button
+            {
+                Text = "...",
+                Dock = DockStyle.Right,
+                Width = 30,
+                FlatStyle = FlatStyle.Flat,
+                ForeColor = Color.Gray,
+                BackColor = Color.Transparent,
+                TextAlign = ContentAlignment.MiddleRight,
+                Cursor = Cursors.Hand
+            };
+            menuButton.FlatAppearance.BorderSize = 0;
+            menuButton.FlatAppearance.MouseOverBackColor = Color.Transparent;
+            menuButton.FlatAppearance.MouseDownBackColor = Color.Transparent;
+            menuButton.Click += (s, e) => MenuClicked?.Invoke(this, e);
+
+            bottomRow.Controls.Add(menuButton);
+            bottomRow.Controls.Add(progressLabel);
+
+            infoPanel.Controls.Add(bottomRow);
+            infoPanel.Controls.Add(titleLabel);
+
+            this.Controls.Add(infoPanel);
+            this.Controls.Add(coverBox);
         }
     }
 }
