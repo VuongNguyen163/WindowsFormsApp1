@@ -763,5 +763,58 @@ namespace WindowsFormsApp1.Data
             string query = "DELETE FROM GhiChu WHERE MaGhiChu = @Id";
             ExecuteSimpleNonQuery(query, "@Id", id);
         }
+
+        // --- THÊM VÀO DataManager.cs ---
+
+        // 1. Xác thực mật khẩu hiện tại (Dùng cho bước yêu cầu nhập lại pass)
+        public bool VerifyCurrentPassword(int userId, string password)
+        {
+            string hashedPassword = HashPassword(password); // Tận dụng hàm Hash có sẵn
+            string query = "SELECT COUNT(1) FROM NguoiDung WHERE MaNguoiDung = @Id AND MatKhauHash = @Pass";
+
+            using (var conn = DatabaseConnection.Instance.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Id", userId);
+                    cmd.Parameters.AddWithValue("@Pass", hashedPassword);
+                    return (int)cmd.ExecuteScalar() > 0;
+                }
+            }
+        }
+
+        // 2. Cập nhật thông tin người dùng
+        public void UpdateUserProfile(int userId, string displayName, string email, string newPassword = null)
+        {
+            // Nếu newPassword có giá trị thì update cả mật khẩu, nếu null/rỗng thì giữ nguyên
+            string query;
+            if (!string.IsNullOrEmpty(newPassword))
+            {
+                query = "UPDATE NguoiDung SET TenHienThi = @Name, Email = @Email, MatKhauHash = @Pass WHERE MaNguoiDung = @Id";
+            }
+            else
+            {
+                query = "UPDATE NguoiDung SET TenHienThi = @Name, Email = @Email WHERE MaNguoiDung = @Id";
+            }
+
+            using (var conn = DatabaseConnection.Instance.GetConnection())
+            {
+                conn.Open();
+                using (var cmd = new SqlCommand(query, conn))
+                {
+                    cmd.Parameters.AddWithValue("@Id", userId);
+                    cmd.Parameters.AddWithValue("@Name", displayName);
+                    cmd.Parameters.AddWithValue("@Email", email ?? "");
+
+                    if (!string.IsNullOrEmpty(newPassword))
+                    {
+                        cmd.Parameters.AddWithValue("@Pass", HashPassword(newPassword));
+                    }
+
+                    cmd.ExecuteNonQuery();
+                }
+            }
+        }
     }
 }

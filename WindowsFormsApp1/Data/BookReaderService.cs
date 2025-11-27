@@ -1,22 +1,24 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Data.SqlClient;
+using System.Drawing; // Để dùng class Image
 using System.IO;
-using System.Text;
+using System.Linq;
 using System.Text.RegularExpressions;
-using System.Windows.Forms;
-using VersOne.Epub; // Yêu cầu cài NuGet Package: VersOne.Epub
+using VersOne.Epub;     // NuGet: VersOne.Epub
+using UglyToad.PdfPig;  // NuGet: PdfPig
+using UglyToad.PdfPig.Content; // Để dùng IPdfImage
+using System.Text;
 
 namespace WindowsFormsApp1.Data
 {
-    /// <summary>
-    /// DTO đơn giản để chứa nội dung 1 chương
-    /// </summary>
     public class BookChapter
     {
         public int ChapterNumber { get; set; }
         public string ChapterTitle { get; set; }
         public string Content { get; set; }
+        // Lưu trữ ảnh của chương này (Key: mã placeholder, Value: dữ liệu ảnh)
+        public Dictionary<string, Image> Images { get; set; } = new Dictionary<string, Image>();
     }
 
     public class BookReaderService
@@ -28,11 +30,8 @@ namespace WindowsFormsApp1.Data
             _dataManager = dataManager;
         }
 
-        #region Xử lý Vị Trí Đọc (Database)
+        #region Database Methods (Lưu vị trí đọc)
 
-        /// <summary>
-        /// Lưu vị trí đọc vào bảng VT_DocSach VÀ cập nhật TrangHienTai trong bảng Sach
-        /// </summary>
         public void SaveReadingPosition(int bookId, int userId, int chapterNumber, int positionInChapter)
         {
             try
@@ -40,16 +39,11 @@ namespace WindowsFormsApp1.Data
                 using (var conn = DatabaseConnection.Instance.GetConnection())
                 {
                     conn.Open();
-
-                    // Query kết hợp:
-                    // 1. Update hoặc Insert vào VT_DocSach (lưu chi tiết vị trí cuộn chuột)
-                    // 2. Update TrangHienTai trong bảng Sach (để hiển thị % tiến độ ở list chính)
+                    // Upsert: Cập nhật nếu có, chèn mới nếu chưa
                     string query = @"
-                        -- Update bảng chi tiết vị trí
                         IF EXISTS (SELECT 1 FROM VT_DocSach WHERE MaSach = @Bid AND MaNguoiDung = @Uid)
                         BEGIN
-                            UPDATE VT_DocSach 
-                            SET SoChap = @Ch, ViTriTrongChap = @Pos, NgayCapNhat = GETDATE()
+                            UPDATE VT_DocSach SET SoChap = @Ch, ViTriTrongChap = @Pos, NgayCapNhat = GETDATE()
                             WHERE MaSach = @Bid AND MaNguoiDung = @Uid
                         END
                         ELSE
@@ -57,8 +51,6 @@ namespace WindowsFormsApp1.Data
                             INSERT INTO VT_DocSach (MaSach, MaNguoiDung, SoChap, ViTriTrongChap, NgayCapNhat)
                             VALUES (@Bid, @Uid, @Ch, @Pos, GETDATE())
                         END;
-
-                        -- Update bảng Sach để tính % tiến độ
                         UPDATE Sach SET TrangHienTai = @Ch WHERE MaSach = @Bid";
 
                     using (var cmd = new SqlCommand(query, conn))
@@ -71,23 +63,14 @@ namespace WindowsFormsApp1.Data
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                // Log lỗi nhẹ, không hiện MessageBox để tránh làm phiền khi đang scroll
-                Console.WriteLine($"Lỗi lưu vị trí: {ex.Message}");
-            }
+            catch (Exception ex) { Console.WriteLine($"Lỗi lưu vị trí: {ex.Message}"); }
         }
 
-        /// <summary>
-        /// Lấy vị trí đọc lần cuối
-        /// </summary>
-        /// <returns>Tuple (ChapterIndex, ScrollPosition)</returns>
         public (int chapter, int position) GetReadingPosition(int bookId, int userId)
         {
             try
             {
                 string query = "SELECT SoChap, ViTriTrongChap FROM VT_DocSach WHERE MaSach = @Bid AND MaNguoiDung = @Uid";
-
                 using (var conn = DatabaseConnection.Instance.GetConnection())
                 {
                     conn.Open();
@@ -97,97 +80,137 @@ namespace WindowsFormsApp1.Data
                         cmd.Parameters.AddWithValue("@Uid", userId);
                         using (var reader = cmd.ExecuteReader())
                         {
-                            if (reader.Read())
-                            {
-                                int ch = reader.GetInt32(0); // SoChap
-                                int pos = reader.GetInt32(1); // ViTriTrongChap
-                                return (ch, pos);
-                            }
+                            if (reader.Read()) return (reader.GetInt32(0), reader.GetInt32(1));
                         }
                     }
                 }
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Lỗi lấy vị trí: {ex.Message}");
-            }
-
-            return (0, 0); // Mặc định chương 0, vị trí 0
+            catch { }
+            return (0, 0);
         }
 
         #endregion
 
-        #region Xử lý Nội dung Sách (File)
+        #region Content Reading (Main)
 
-        /// <summary>
-        /// Điều phối đọc nội dung dựa trên extension
-        /// </summary>
         public List<BookChapter> ReadBookContent(Book book)
         {
-            if (book == null || string.IsNullOrEmpty(book.FilePath))
-                return new List<BookChapter>();
-
+            if (book == null || string.IsNullOrEmpty(book.FilePath)) return new List<BookChapter>();
             string ext = Path.GetExtension(book.FilePath).ToLower();
 
-            switch (ext)
-            {
-                case ".epub":
-                    return ReadEpubContent(book.FilePath);
-                case ".txt":
-                    return ReadTxtContent(book.FilePath);
-                case ".pdf":
-                    return GetPlaceholderContent("PDF Reader", "Hiện tại ứng dụng chưa hỗ trợ render PDF trực tiếp. Vui lòng mở bằng ứng dụng hệ thống.");
-                case ".mobi":
-                    return GetPlaceholderContent("MOBI Reader", "Định dạng MOBI chưa được hỗ trợ. Vui lòng convert sang EPUB.");
-                default:
-                    return GetPlaceholderContent("Unknown Format", "Định dạng file không được hỗ trợ.");
-            }
+            if (ext == ".epub") return ReadEpubContent(book.FilePath);
+            if (ext == ".txt") return ReadTxtContent(book.FilePath);
+            if (ext == ".pdf") return ReadPdfContent(book.FilePath);
+
+            return GetPlaceholderContent("Định dạng không hỗ trợ", "Chỉ hỗ trợ EPUB, PDF và TXT.");
         }
+
+        #endregion
+
+        #region Format Specific Readers (Epub, PDF, Txt)
 
         private List<BookChapter> ReadEpubContent(string filePath)
         {
-            List<BookChapter> chapters = new List<BookChapter>();
+            List<BookChapter> rawChapters = new List<BookChapter>();
             try
             {
                 EpubBook epub = EpubReader.ReadBook(filePath);
 
-                // Nếu EPUB có ReadingOrder (chuẩn), dùng nó
-                if (epub.ReadingOrder != null && epub.ReadingOrder.Count > 0)
+                // Map Title từ Navigation
+                Dictionary<string, string> titleMap = new Dictionary<string, string>();
+                if (epub.Navigation != null)
                 {
-                    int index = 0;
+                    foreach (var nav in epub.Navigation)
+                    {
+                        string key = nav.Link?.ContentFilePath;
+                        if (!string.IsNullOrEmpty(key) && !titleMap.ContainsKey(key))
+                            titleMap[key] = nav.Title;
+                    }
+                }
+
+                if (epub.ReadingOrder != null)
+                {
+                    int index = 1;
                     foreach (var item in epub.ReadingOrder)
                     {
-                        string content = HtmlToPlainText(item.Content);
-                        if (!string.IsNullOrWhiteSpace(content))
+                        var parsedData = ParseHtmlContent(item.Content, epub);
+
+                        if (!string.IsNullOrWhiteSpace(parsedData.text) || parsedData.images.Count > 0)
                         {
-                            chapters.Add(new BookChapter
+                            string chapterTitle = "Chương " + index;
+                            if (titleMap.ContainsKey(item.Key)) chapterTitle = titleMap[item.Key];
+
+                            rawChapters.Add(new BookChapter
                             {
-                                ChapterNumber = index++,
-                                ChapterTitle = $"Section {index}", // Có thể cải thiện để lấy title từ TOC
-                                Content = content
+                                ChapterTitle = chapterTitle,
+                                Content = parsedData.text,
+                                Images = parsedData.images
                             });
+                            index++;
                         }
                     }
                 }
-                else
+                return MergeShortChapters(rawChapters);
+            }
+            catch (Exception ex)
+            {
+                return GetPlaceholderContent("Lỗi", $"Không đọc được file: {ex.Message}");
+            }
+        }
+
+        private List<BookChapter> ReadPdfContent(string filePath)
+        {
+            List<BookChapter> chapters = new List<BookChapter>();
+            try
+            {
+                using (var pdf = PdfDocument.Open(filePath))
                 {
-                    // Fallback nếu cấu trúc lạ
-                    chapters.Add(new BookChapter
+                    for (int i = 1; i <= pdf.NumberOfPages; i++)
                     {
-                        ChapterNumber = 0,
-                        ChapterTitle = "Full Content",
-                        Content = "Không thể phân tách chương cho file EPUB này."
-                    });
+                        var page = pdf.GetPage(i);
+                        string text = page.Text;
+                        var images = new Dictionary<string, Image>();
+
+                        // Lấy ảnh từ PDF
+                        foreach (var img in page.GetImages())
+                        {
+                            try
+                            {
+                                byte[] imgBytes = null;
+                                if (img.TryGetPng(out byte[] png)) imgBytes = png;
+                                else imgBytes = img.RawBytes.ToArray();
+
+                                if (imgBytes != null)
+                                {
+                                    using (var ms = new MemoryStream(imgBytes))
+                                    {
+                                        // Clone Bitmap để tránh lỗi GDI+ khi stream đóng
+                                        using (var temp = Image.FromStream(ms))
+                                        {
+                                            Image image = new Bitmap(temp);
+                                            string key = $"{{{{IMG:{Guid.NewGuid()}}}}}";
+                                            images.Add(key, image);
+                                            text += $"\n\n{key}\n\n";
+                                        }
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+
+                        chapters.Add(new BookChapter
+                        {
+                            ChapterNumber = i - 1,
+                            ChapterTitle = $"Trang {i}",
+                            Content = text,
+                            Images = images
+                        });
+                    }
                 }
             }
             catch (Exception ex)
             {
-                chapters.Add(new BookChapter
-                {
-                    ChapterNumber = 0,
-                    ChapterTitle = "Error",
-                    Content = $"Lỗi đọc EPUB: {ex.Message}"
-                });
+                return GetPlaceholderContent("Lỗi đọc PDF", ex.Message);
             }
             return chapters;
         }
@@ -198,79 +221,147 @@ namespace WindowsFormsApp1.Data
             try
             {
                 string text = File.ReadAllText(filePath, Encoding.UTF8);
+                int idealLength = 8000;
+                int start = 0;
+                int count = 1;
 
-                // Cắt file TXT lớn thành các chương giả (ví dụ mỗi 5000 ký tự) để UI không bị lag
-                int chunkSize = 5000;
-                int length = text.Length;
-                int count = 0;
-
-                for (int i = 0; i < length; i += chunkSize)
+                while (start < text.Length)
                 {
-                    int len = Math.Min(chunkSize, length - i);
+                    int length = Math.Min(idealLength, text.Length - start);
+                    int end = start + length;
+
+                    if (end < text.Length)
+                    {
+                        int lastNewLine = text.LastIndexOf('\n', end, 2000);
+                        if (lastNewLine > start) end = lastNewLine + 1;
+                    }
+
                     chapters.Add(new BookChapter
                     {
-                        ChapterNumber = count,
-                        ChapterTitle = $"Phần {count + 1}",
-                        Content = text.Substring(i, len)
+                        ChapterNumber = count - 1,
+                        ChapterTitle = $"Phần {count}",
+                        Content = text.Substring(start, end - start).Trim()
                     });
-                    count++;
+                    start = end; count++;
                 }
             }
-            catch (Exception ex)
-            {
-                chapters.Add(new BookChapter { ChapterNumber = 0, ChapterTitle = "Error", Content = ex.Message });
-            }
+            catch (Exception ex) { return GetPlaceholderContent("Error", ex.Message); }
             return chapters;
-        }
-
-        // Helper: Chuyển HTML sang Text thuần
-        private string HtmlToPlainText(string html)
-        {
-            if (string.IsNullOrEmpty(html)) return "";
-
-            // Decode ký tự HTML (&nbsp;, &lt;, ...)
-            string text = System.Net.WebUtility.HtmlDecode(html);
-
-            // Xóa thẻ script và style
-            text = Regex.Replace(text, @"<script[^>]*>.*?</script>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-            text = Regex.Replace(text, @"<style[^>]*>.*?</style>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
-
-            // Thay thế thẻ <br>, <p>, <div> bằng xuống dòng
-            text = Regex.Replace(text, @"<br\s*/?>", "\n", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"</p>", "\n\n", RegexOptions.IgnoreCase);
-            text = Regex.Replace(text, @"</div>", "\n", RegexOptions.IgnoreCase);
-
-            // Xóa tất cả thẻ HTML còn lại
-            text = Regex.Replace(text, @"<[^>]+>", "");
-
-            // Xóa dòng trống thừa
-            text = Regex.Replace(text, @"^\s*$\n|\r", "", RegexOptions.Multiline);
-
-            return text.Trim();
-        }
-
-        private List<BookChapter> GetPlaceholderContent(string title, string message)
-        {
-            return new List<BookChapter>
-            {
-                new BookChapter { ChapterNumber = 0, ChapterTitle = title, Content = message }
-            };
         }
 
         #endregion
 
-        #region Tiện ích mở rộng
+        #region Helpers (Parse, Merge, Estimate)
 
-        /// <summary>
-        /// Ước tính tổng số trang của sách dựa trên độ dài nội dung.
-        /// Quy ước: 1 trang ~ 2000 ký tự.
-        /// </summary>
+        private (string text, Dictionary<string, Image> images) ParseHtmlContent(string html, EpubBook epubBook)
+        {
+            var images = new Dictionary<string, Image>();
+            if (string.IsNullOrEmpty(html)) return ("", images);
+
+            string processedText = html;
+            var imgRegex = new Regex(@"<img[^>]+src\s*=\s*['""]([^'""]+)['""][^>]*>", RegexOptions.IgnoreCase);
+
+            processedText = imgRegex.Replace(processedText, match =>
+            {
+                string src = match.Groups[1].Value;
+                src = System.Net.WebUtility.UrlDecode(src);
+                string fileName = Path.GetFileName(src);
+
+                if (epubBook.Content?.Images?.Local != null)
+                {
+                    foreach (var imgFile in epubBook.Content.Images.Local)
+                    {
+                        if (imgFile.FilePath.EndsWith(fileName, StringComparison.OrdinalIgnoreCase))
+                        {
+                            try
+                            {
+                                using (var ms = new MemoryStream(imgFile.Content))
+                                {
+                                    using (var temp = Image.FromStream(ms))
+                                    {
+                                        Image img = new Bitmap(temp);
+                                        string uniqueKey = $"{{{{IMG:{Guid.NewGuid()}}}}}";
+                                        images.Add(uniqueKey, img);
+                                        return $"\n\n{uniqueKey}\n\n";
+                                    }
+                                }
+                            }
+                            catch { }
+                        }
+                    }
+                }
+                return "[Ảnh]";
+            });
+
+            // Clean HTML
+            processedText = System.Net.WebUtility.HtmlDecode(processedText);
+            processedText = Regex.Replace(processedText, @"<head>.*?</head>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            processedText = Regex.Replace(processedText, @"<script[^>]*>.*?</script>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            processedText = Regex.Replace(processedText, @"<style[^>]*>.*?</style>", "", RegexOptions.IgnoreCase | RegexOptions.Singleline);
+            processedText = Regex.Replace(processedText, @"</?(p|div|h[1-6]|br|li)[^>]*>", "\n", RegexOptions.IgnoreCase);
+            processedText = Regex.Replace(processedText, @"<[^>]+>", "");
+            processedText = Regex.Replace(processedText, @"(\n\s*){3,}", "\n\n");
+
+            return (processedText.Trim(), images);
+        }
+
+        private List<BookChapter> MergeShortChapters(List<BookChapter> input)
+        {
+            var result = new List<BookChapter>();
+            if (input.Count == 0) return result;
+
+            BookChapter currentBuffer = null;
+            int chapterCounter = 1;
+
+            foreach (var chapter in input)
+            {
+                if (currentBuffer == null)
+                {
+                    currentBuffer = chapter;
+                    currentBuffer.ChapterNumber = chapterCounter;
+                }
+                else
+                {
+                    bool isShort = currentBuffer.Content.Length < 1000 && currentBuffer.Images.Count < 2;
+                    if (isShort)
+                    {
+                        currentBuffer.Content += "\n\n" + "--- " + (chapter.ChapterTitle ?? "*") + " ---\n\n" + chapter.Content;
+                        foreach (var img in chapter.Images)
+                        {
+                            if (!currentBuffer.Images.ContainsKey(img.Key))
+                                currentBuffer.Images.Add(img.Key, img.Value);
+                        }
+                    }
+                    else
+                    {
+                        result.Add(currentBuffer);
+                        chapterCounter++;
+                        currentBuffer = chapter;
+                        currentBuffer.ChapterNumber = chapterCounter;
+                    }
+                }
+            }
+            if (currentBuffer != null) result.Add(currentBuffer);
+
+            for (int i = 0; i < result.Count; i++)
+            {
+                if (string.IsNullOrEmpty(result[i].ChapterTitle) || result[i].ChapterTitle.Length > 50)
+                    result[i].ChapterTitle = $"Chương {i + 1}";
+            }
+            return result;
+        }
+
+        private List<BookChapter> GetPlaceholderContent(string title, string msg)
+        {
+            return new List<BookChapter> { new BookChapter { ChapterNumber = 0, ChapterTitle = title, Content = msg } };
+        }
+
+        // Utility: Tính số trang (Used by BookScannerService)
         public int EstimateTotalPages(string filePath)
         {
             try
             {
                 if (string.IsNullOrEmpty(filePath) || !File.Exists(filePath)) return 0;
-
                 string ext = Path.GetExtension(filePath).ToLower();
                 long totalCharacters = 0;
 
@@ -278,29 +369,21 @@ namespace WindowsFormsApp1.Data
                 {
                     EpubBook epub = EpubReader.ReadBook(filePath);
                     if (epub.ReadingOrder != null)
-                    {
-                        foreach (var item in epub.ReadingOrder)
-                        {
-                            string text = HtmlToPlainText(item.Content);
-                            totalCharacters += text.Length;
-                        }
-                    }
+                        foreach (var item in epub.ReadingOrder) totalCharacters += item.Content.Length;
                 }
                 else if (ext == ".txt")
                 {
-                    string text = File.ReadAllText(filePath);
-                    totalCharacters = text.Length;
+                    totalCharacters = new FileInfo(filePath).Length;
+                }
+                else if (ext == ".pdf")
+                {
+                    using (var pdf = PdfDocument.Open(filePath)) return pdf.NumberOfPages;
                 }
 
-                // Ước tính: 2000 ký tự = 1 trang
                 if (totalCharacters == 0) return 0;
-                return (int)Math.Ceiling(totalCharacters / 2000.0);
+                return (int)Math.Ceiling(totalCharacters / 3000.0);
             }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"Lỗi tính số trang: {ex.Message}");
-                return 0;
-            }
+            catch { return 0; }
         }
 
         #endregion
