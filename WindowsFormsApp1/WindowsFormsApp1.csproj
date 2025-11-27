@@ -85,6 +85,7 @@
     <Compile Include="Controls\BookCard.cs">
       <SubType>UserControl</SubType>
     </Compile>
+    <Compile Include="CustomMenuRenderer.cs" />
     <Compile Include="Data\BookReaderService.cs" />
     <Compile Include="Data\BookScannerService.cs" />
     <Compile Include="Data\DatabaseConnection.cs" />
