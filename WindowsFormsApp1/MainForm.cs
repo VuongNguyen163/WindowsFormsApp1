@@ -522,8 +522,17 @@ namespace WindowsFormsApp1
             btnJump.Click += (s, e) =>
             {
                 var book = DataManager.Instance.GetBookById(item.BookId);
-                if (book != null) { BookReaderForm reader = new BookReaderForm(book); reader.ShowDialog(); }
-                else { MessageBox.Show("Không tìm thấy cuốn sách này (có thể đã bị xóa)."); }
+                if (book != null)
+                {
+                    // SỬA LỖI: Truyền thêm ChapterIndex và StartIndex vào Constructor
+                    // BookReaderForm đã có sẵn logic nhận 2 tham số này (jumpChapter, jumpPos)
+                    BookReaderForm reader = new BookReaderForm(book, item.ChapterIndex, item.StartIndex);
+                    reader.ShowDialog();
+                }
+                else
+                {
+                    MessageBox.Show("Không tìm thấy cuốn sách này (có thể đã bị xóa).");
+                }
             };
 
             card.Controls.AddRange(new Control[] { btnDelete, btnJump, lblQuote, lblBook, colorBar });
