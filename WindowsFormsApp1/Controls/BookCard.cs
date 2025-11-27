@@ -2,20 +2,17 @@
 using System.Drawing;
 using System.Windows.Forms;
 using System.IO;
-using WindowsFormsApp1.Data; // <--- QUAN TRỌNG: Phải import namespace này để dùng được class Book
+using WindowsFormsApp1.Data;
 
 namespace WindowsFormsApp1.Controls
 {
     public partial class BookCard : UserControl
     {
-        // Field private đặt tên có dấu gạch dưới để chuẩn coding convention
         private Book _book;
 
-        // Định nghĩa các Event để MainForm có thể bắt sự kiện
         public event EventHandler BookClicked;
         public event EventHandler MenuClicked;
 
-        // Các Control giao diện
         private PictureBox coverBox;
         private Label titleLabel;
         private Label progressLabel;
@@ -26,12 +23,11 @@ namespace WindowsFormsApp1.Controls
         {
             InitializeCustomComponents();
 
-            // Sự kiện click vào toàn bộ thẻ
             this.Click += (s, e) => BookClicked?.Invoke(this, e);
             this.Cursor = Cursors.Hand;
             this.BackColor = Color.Transparent;
             this.Size = new Size(150, 240);
-            this.Margin = new Padding(15); // Tăng margin để thoáng hơn
+            this.Margin = new Padding(15);
         }
 
         public Book Book
@@ -61,22 +57,56 @@ namespace WindowsFormsApp1.Controls
                 progressLabel.Text = "0.00%";
             }
 
-            // 3. Hiển thị Ảnh bìa
-            if (!string.IsNullOrEmpty(_book.CoverImagePath) && File.Exists(_book.CoverImagePath))
+            // 3. Xử lý hiển thị Ảnh bìa (Logic mới: Load an toàn + Fallback)
+            string imagePath = _book.CoverImagePath;
+            bool imageLoaded = false;
+
+            if (!string.IsNullOrEmpty(imagePath))
             {
-                try
+                // Trường hợp A: Đường dẫn tuyệt đối trong Database đúng
+                if (File.Exists(imagePath))
                 {
-                    using (var fs = new FileStream(_book.CoverImagePath, FileMode.Open, FileAccess.Read))
-                    {
-                        coverBox.Image = Image.FromStream(fs);
-                    }
+                    LoadImageSafe(imagePath);
+                    imageLoaded = true;
                 }
-                catch
+                // Trường hợp B: Đường dẫn sai (do copy app), tự dò trong folder CoverImages cạnh file exe
+                else
                 {
-                    coverBox.Image = null;
+                    try
+                    {
+                        string fileName = Path.GetFileName(imagePath);
+                        string localPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "CoverImages", fileName);
+
+                        if (File.Exists(localPath))
+                        {
+                            LoadImageSafe(localPath);
+                            imageLoaded = true;
+                        }
+                    }
+                    catch { }
                 }
             }
-            else
+
+            // 4. Nếu không tìm thấy ảnh nào, dùng Placeholder
+            if (!imageLoaded)
+            {
+                coverBox.Image = null; // Hoặc gán Properties.Resources.DefaultBook nếu có
+                coverBox.BackColor = Color.FromArgb(60, 60, 60);
+            }
+        }
+
+        // Hàm load ảnh an toàn, tránh lỗi File Lock
+        private void LoadImageSafe(string path)
+        {
+            try
+            {
+                using (var fs = new FileStream(path, FileMode.Open, FileAccess.Read))
+                {
+                    if (coverBox.Image != null) coverBox.Image.Dispose();
+                    coverBox.Image = Image.FromStream(fs);
+                }
+            }
+            catch
             {
                 coverBox.Image = null;
             }
@@ -90,7 +120,7 @@ namespace WindowsFormsApp1.Controls
                 Dock = DockStyle.Top,
                 Height = 190,
                 SizeMode = PictureBoxSizeMode.StretchImage,
-                BackColor = Color.FromArgb(60, 60, 60) // Placeholder color
+                BackColor = Color.FromArgb(60, 60, 60)
             };
             coverBox.Click += (s, e) => BookClicked?.Invoke(this, e);
 
@@ -113,14 +143,13 @@ namespace WindowsFormsApp1.Controls
             };
             titleLabel.Click += (s, e) => BookClicked?.Invoke(this, e);
 
-            // 4. Bottom Row (Progress + Menu)
+            // 4. Bottom Row
             Panel bottomRow = new Panel
             {
                 Dock = DockStyle.Top,
                 Height = 20
             };
 
-            // Progress
             progressLabel = new Label
             {
                 Dock = DockStyle.Left,
@@ -131,7 +160,6 @@ namespace WindowsFormsApp1.Controls
                 TextAlign = ContentAlignment.MiddleLeft
             };
 
-            // Menu Button
             menuButton = new Button
             {
                 Text = "...",

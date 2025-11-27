@@ -754,5 +754,14 @@ namespace WindowsFormsApp1.Data
 
             return ExecuteBookQuery(query);
         }
+
+        // --- Thêm vào DataManager.cs ---
+
+        public void DeleteHighlight(int id)
+        {
+            // MaGhiChu là khóa chính của bảng GhiChu
+            string query = "DELETE FROM GhiChu WHERE MaGhiChu = @Id";
+            ExecuteSimpleNonQuery(query, "@Id", id);
+        }
     }
 }
