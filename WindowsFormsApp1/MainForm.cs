@@ -181,19 +181,94 @@ namespace WindowsFormsApp1
             sortButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(70, 70, 73);
             sortButton.Click += SortButton_Click;
 
-            // Các nút chức năng khác
-            scanFolderButton = new Button { Text = "Quét thư mục", Size = new Size(120, 30), BackColor = Color.FromArgb(100, 150, 100), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 10), Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right, Visible = false };
-            scanFolderButton.FlatAppearance.BorderSize = 0; scanFolderButton.Click += ScanFolderButton_Click;
+            // Nút Quét thư mục - Cải thiện giao diện
+            scanFolderButton = new Button 
+            { 
+                Text = "📂  Quét thư mục", 
+                Size = new Size(140, 36), 
+                BackColor = Color.FromArgb(76, 175, 80), 
+                ForeColor = Color.White, 
+                FlatStyle = FlatStyle.Flat, 
+                Font = new Font("Segoe UI", 10, FontStyle.Bold), 
+                Cursor = Cursors.Hand, 
+                Anchor = AnchorStyles.Top | AnchorStyles.Right, 
+                Visible = false 
+            };
+            scanFolderButton.FlatAppearance.BorderSize = 0;
+            scanFolderButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(67, 160, 71);
+            scanFolderButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(56, 142, 60);
+            scanFolderButton.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (System.Drawing.Drawing2D.GraphicsPath path = GetRoundedRectangle(scanFolderButton.ClientRectangle, 6))
+                {
+                    scanFolderButton.Region = new Region(path);
+                }
+            };
+            scanFolderButton.Click += ScanFolderButton_Click;
 
-            importButton = new Button { Text = "Nhập sách", Size = new Size(120, 30), BackColor = Color.FromArgb(0, 120, 215), ForeColor = Color.White, FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 10), Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right, Visible = false };
-            importButton.FlatAppearance.BorderSize = 0; importButton.Click += ImportButton_Click;
+            // Nút Nhập sách - Cải thiện giao diện
+            importButton = new Button 
+            { 
+                Text = "📥  Nhập sách", 
+                Size = new Size(130, 36), 
+                BackColor = Color.FromArgb(33, 150, 243), 
+                ForeColor = Color.White, 
+                FlatStyle = FlatStyle.Flat, 
+                Font = new Font("Segoe UI", 10, FontStyle.Bold), 
+                Cursor = Cursors.Hand, 
+                Anchor = AnchorStyles.Top | AnchorStyles.Right, 
+                Visible = false 
+            };
+            importButton.FlatAppearance.BorderSize = 0;
+            importButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(30, 136, 229);
+            importButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(25, 118, 210);
+            importButton.Paint += (s, e) =>
+            {
+                e.Graphics.SmoothingMode = System.Drawing.Drawing2D.SmoothingMode.AntiAlias;
+                using (System.Drawing.Drawing2D.GraphicsPath path = GetRoundedRectangle(importButton.ClientRectangle, 6))
+                {
+                    importButton.Region = new Region(path);
+                }
+            };
+            importButton.Click += ImportButton_Click;
 
-            userButton = new Button { Text = "👤", Size = new Size(40, 40), FlatStyle = FlatStyle.Flat, BackColor = Color.Gray, ForeColor = Color.White, Font = new Font("Segoe UI", 14), Cursor = Cursors.Hand, Anchor = AnchorStyles.Top | AnchorStyles.Right };
+            // Nút User - Cải thiện giao diện
+            userButton = new Button 
+            { 
+                Text = "👤", 
+                Size = new Size(44, 44), 
+                FlatStyle = FlatStyle.Flat, 
+                BackColor = Color.FromArgb(96, 125, 139), 
+                ForeColor = Color.White, 
+                Font = new Font("Segoe UI", 16), 
+                Cursor = Cursors.Hand, 
+                Anchor = AnchorStyles.Top | AnchorStyles.Right 
+            };
             userButton.FlatAppearance.BorderSize = 0;
-            System.Drawing.Drawing2D.GraphicsPath gp = new System.Drawing.Drawing2D.GraphicsPath(); gp.AddEllipse(0, 0, 40, 40); userButton.Region = new Region(gp); userButton.Click += UserButton_Click;
+            userButton.FlatAppearance.MouseOverBackColor = Color.FromArgb(84, 110, 122);
+            userButton.FlatAppearance.MouseDownBackColor = Color.FromArgb(69, 90, 100);
+            System.Drawing.Drawing2D.GraphicsPath gp = new System.Drawing.Drawing2D.GraphicsPath(); 
+            gp.AddEllipse(0, 0, 44, 44); 
+            userButton.Region = new Region(gp); 
+            userButton.Click += UserButton_Click;
 
-            lblUsername = new Label { Text = "", AutoSize = true, ForeColor = Color.White, Font = new Font("Segoe UI", 10, FontStyle.Bold), Anchor = AnchorStyles.Top | AnchorStyles.Right, Visible = false };
-            authMenu = new ContextMenuStrip(); authMenu.RenderMode = ToolStripRenderMode.System;
+            lblUsername = new Label 
+            { 
+                Text = "", 
+                AutoSize = true, 
+                ForeColor = Color.White, 
+                Font = new Font("Segoe UI", 10, FontStyle.Bold), 
+                Anchor = AnchorStyles.Top | AnchorStyles.Right, 
+                Visible = false 
+            };
+            
+            authMenu = new ContextMenuStrip 
+            { 
+                BackColor = Color.FromArgb(40, 40, 42),
+                ForeColor = Color.White,
+                Renderer = new CustomMenuRenderer()
+            };
 
             topBar.Controls.AddRange(new Control[] { menuButton, logoLabel, searchPanel, sortButton, scanFolderButton, importButton, userButton, lblUsername });
 
@@ -215,24 +290,36 @@ namespace WindowsFormsApp1
             yPos += 50; trashButton = CreateSidebarButton("🗑️ Thùng rác", yPos); trashButton.Click += (s, e) => SwitchView("Trash");
 
             yPos += 60;
+            // Nút toggle Kệ sách - Cải thiện giao diện
             btnShelfToggle = new Button
             {
-                Text = "˅  Kệ sách",
+                Text = "📚  Kệ sách",
                 Tag = "Kệ sách",
                 Font = new Font("Segoe UI", 11, FontStyle.Bold),
-                ForeColor = Color.FromArgb(180, 180, 180),
+                ForeColor = Color.FromArgb(200, 200, 200),
                 Location = new Point(0, yPos),
-                Size = new Size(240, 40),
+                Size = new Size(240, 45),
                 TextAlign = ContentAlignment.MiddleLeft,
                 FlatStyle = FlatStyle.Flat,
-                BackColor = Color.Transparent,
+                BackColor = Color.FromArgb(45, 45, 48),
                 Cursor = Cursors.Hand,
-                Padding = new Padding(10, 0, 0, 0)
+                Padding = new Padding(15, 0, 0, 0)
             };
             btnShelfToggle.FlatAppearance.BorderSize = 0;
+            btnShelfToggle.FlatAppearance.MouseOverBackColor = Color.FromArgb(55, 55, 58);
             btnShelfToggle.Click += (s, e) => ToggleShelf();
 
-            pnlShelfContainer = new FlowLayoutPanel { Location = new Point(10, yPos + 45), Size = new Size(220, 300), FlowDirection = FlowDirection.TopDown, WrapContents = false, AutoScroll = true, Visible = true };
+            pnlShelfContainer = new FlowLayoutPanel 
+            { 
+                Location = new Point(0, yPos + 50), 
+                Size = new Size(240, 300), 
+                FlowDirection = FlowDirection.TopDown, 
+                WrapContents = false, 
+                AutoScroll = true, 
+                Visible = true,
+                BackColor = Color.FromArgb(30, 30, 30),
+                Padding = new Padding(5, 5, 5, 5)
+            };
             RefreshSidebarShelves();
 
             sidebarPanel.Controls.AddRange(new Control[] { booksButton, favoritesButton, notesButton, highlightsButton, trashButton, btnShelfToggle, pnlShelfContainer });
@@ -382,27 +469,57 @@ namespace WindowsFormsApp1
             };
         }
 
-        private Button CreateSidebarSubButton(string text) => new Button { Text = text, Size = new Size(190, 30), BackColor = Color.Transparent, ForeColor = Color.FromArgb(200, 200, 200), FlatStyle = FlatStyle.Flat, Font = new Font("Segoe UI", 10), TextAlign = ContentAlignment.MiddleLeft, Cursor = Cursors.Hand, FlatAppearance = { BorderSize = 0 }, Margin = new Padding(0, 2, 0, 2) };
+        private Button CreateSidebarSubButton(string text)
+        {
+            var btn = new Button
+            {
+                Text = text,
+                Size = new Size(230, 35),
+                BackColor = Color.Transparent,
+                ForeColor = Color.FromArgb(200, 200, 200),
+                FlatStyle = FlatStyle.Flat,
+                Font = new Font("Segoe UI", 10),
+                TextAlign = ContentAlignment.MiddleLeft,
+                Cursor = Cursors.Hand,
+                Margin = new Padding(0, 2, 0, 2),
+                Padding = new Padding(10, 0, 0, 0)
+            };
+            btn.FlatAppearance.BorderSize = 0;
+            btn.FlatAppearance.MouseOverBackColor = Color.FromArgb(45, 45, 48);
+            btn.FlatAppearance.MouseDownBackColor = Color.FromArgb(55, 55, 58);
+            return btn;
+        }
 
         // --- PHẦN CÒN LẠI KHÔNG THAY ĐỔI ---
 
         private void UpdateUIAuth()
         {
             int rightMargin = 20; int gap = 15;
-            userButton.Location = new Point(topBar.Width - userButton.Width - rightMargin, 10);
+            userButton.Location = new Point(topBar.Width - userButton.Width - rightMargin, 8);
             userButton.Visible = true;
 
             if (_currentUser == null)
             {
-                scanFolderButton.Visible = false; importButton.Visible = false; lblUsername.Visible = false;
-                userButton.BackColor = Color.Gray; userButton.Text = "👤";
+                scanFolderButton.Visible = false; 
+                importButton.Visible = false; 
+                lblUsername.Visible = false;
+                userButton.BackColor = Color.FromArgb(96, 125, 139); 
+                userButton.Text = "👤";
             }
             else
             {
-                userButton.BackColor = Color.IndianRed; userButton.Text = "⏻";
-                lblUsername.Text = _currentUser.DisplayName; lblUsername.Visible = true; lblUsername.Location = new Point(userButton.Left - lblUsername.Width - gap, 20);
-                importButton.Visible = true; importButton.Location = new Point(lblUsername.Left - importButton.Width - gap, 15);
-                scanFolderButton.Visible = true; scanFolderButton.Location = new Point(importButton.Left - scanFolderButton.Width - gap, 15);
+                userButton.BackColor = Color.FromArgb(244, 67, 54); // Màu đỏ khi đã đăng nhập
+                userButton.Text = "⏻";
+                
+                lblUsername.Text = _currentUser.DisplayName; 
+                lblUsername.Visible = true; 
+                lblUsername.Location = new Point(userButton.Left - lblUsername.Width - gap, 20);
+                
+                importButton.Visible = true; 
+                importButton.Location = new Point(lblUsername.Left - importButton.Width - gap, 12);
+                
+                scanFolderButton.Visible = true; 
+                scanFolderButton.Location = new Point(importButton.Left - scanFolderButton.Width - gap, 12);
             }
             RefreshSidebarShelves();
         }
@@ -410,17 +527,55 @@ namespace WindowsFormsApp1
         private void UserButton_Click(object sender, EventArgs e)
         {
             authMenu.Items.Clear();
+            
             if (_currentUser == null)
             {
-                authMenu.Items.Add("Đăng Nhập", null, (s, ev) => ShowLoginForm());
-                authMenu.Items.Add("Đăng Ký", null, (s, ev) => ShowRegisterForm());
+                // Đăng nhập
+                var loginItem = new ToolStripMenuItem("🔑  Đăng Nhập")
+                {
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    ForeColor = Color.White,
+                    BackColor = Color.FromArgb(40, 40, 42)
+                };
+                loginItem.Click += (s, ev) => ShowLoginForm();
+                authMenu.Items.Add(loginItem);
+
+                // Đăng ký
+                var registerItem = new ToolStripMenuItem("📝  Đăng Ký")
+                {
+                    Font = new Font("Segoe UI", 10),
+                    ForeColor = Color.White,
+                    BackColor = Color.FromArgb(40, 40, 42)
+                };
+                registerItem.Click += (s, ev) => ShowRegisterForm();
+                authMenu.Items.Add(registerItem);
             }
             else
             {
-                var logoutItem = authMenu.Items.Add("Đăng Xuất");
-                logoutItem.ForeColor = Color.Red;
+                // Thông tin người dùng
+                var userInfoItem = new ToolStripMenuItem($"👤  {_currentUser.DisplayName}")
+                {
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(100, 200, 255),
+                    BackColor = Color.FromArgb(40, 40, 42),
+                    Enabled = false
+                };
+                authMenu.Items.Add(userInfoItem);
+
+                // Separator
+                authMenu.Items.Add(new ToolStripSeparator { BackColor = Color.FromArgb(60, 60, 63) });
+
+                // Đăng xuất
+                var logoutItem = new ToolStripMenuItem("🚪  Đăng Xuất")
+                {
+                    Font = new Font("Segoe UI", 10, FontStyle.Bold),
+                    ForeColor = Color.FromArgb(255, 100, 100),
+                    BackColor = Color.FromArgb(40, 40, 42)
+                };
                 logoutItem.Click += (s, ev) => PerformLogout();
+                authMenu.Items.Add(logoutItem);
             }
+            
             authMenu.Show(userButton, new Point(0, userButton.Height));
         }
 
@@ -453,7 +608,7 @@ namespace WindowsFormsApp1
             if (!isSidebarExpanded) return;
             isShelfExpanded = !isShelfExpanded;
             pnlShelfContainer.Visible = isShelfExpanded;
-            btnShelfToggle.Text = isShelfExpanded ? "˅  Kệ sách" : ">  Kệ sách";
+            btnShelfToggle.Text = isShelfExpanded ? "📚  Kệ sách" : "📕  Kệ sách";
         }
 
         private void RefreshSidebarShelves()
@@ -461,17 +616,50 @@ namespace WindowsFormsApp1
             pnlShelfContainer.Controls.Clear();
             if (_currentUser == null) return;
 
-            Button btnNew = CreateSidebarSubButton("+  Kệ mới"); btnNew.Click += BtnAddShelf_Click; pnlShelfContainer.Controls.Add(btnNew);
-            Button btnManage = CreateSidebarSubButton("✎  Quản lý kệ"); btnManage.Click += BtnManageShelf_Click; pnlShelfContainer.Controls.Add(btnManage);
+            // Nút Kệ mới - Cải thiện giao diện
+            Button btnNew = CreateSidebarSubButton("➕  Kệ mới");
+            btnNew.ForeColor = Color.FromArgb(76, 175, 80); // Màu xanh lá
+            btnNew.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            btnNew.Click += BtnAddShelf_Click;
+            pnlShelfContainer.Controls.Add(btnNew);
 
+            // Nút Quản lý kệ - Cải thiện giao diện
+            Button btnManage = CreateSidebarSubButton("⚙️  Quản lý kệ");
+            btnManage.ForeColor = Color.FromArgb(33, 150, 243); // Màu xanh dương
+            btnManage.Font = new Font("Segoe UI", 10, FontStyle.Bold);
+            btnManage.Click += BtnManageShelf_Click;
+            pnlShelfContainer.Controls.Add(btnManage);
+
+            // Separator
+            var separator = new Panel
+            {
+                Height = 1,
+                Width = 220,
+                BackColor = Color.FromArgb(60, 60, 63),
+                Margin = new Padding(5, 8, 5, 8)
+            };
+            pnlShelfContainer.Controls.Add(separator);
+
+            // Danh sách kệ sách
             var shelves = DataManager.Instance.GetShelvesList();
             foreach (var shelf in shelves)
             {
-                Button btnShelf = CreateSidebarSubButton("   " + shelf.Name);
+                Button btnShelf = CreateSidebarSubButton("📖  " + shelf.Name);
+                btnShelf.Tag = shelf.Id; // Lưu ID để dễ kiểm tra
                 btnShelf.Click += (s, e) => {
                     activeShelfId = shelf.Id;
-                    foreach (Control c in pnlShelfContainer.Controls) if (c is Button b) b.ForeColor = Color.FromArgb(200, 200, 200);
+                    // Reset màu tất cả các nút kệ
+                    foreach (Control c in pnlShelfContainer.Controls)
+                    {
+                        if (c is Button b && b.Tag != null && b.Tag is int)
+                        {
+                            b.ForeColor = Color.FromArgb(200, 200, 200);
+                            b.BackColor = Color.Transparent;
+                        }
+                    }
+                    // Highlight kệ được chọn
                     btnShelf.ForeColor = Color.White;
+                    btnShelf.BackColor = Color.FromArgb(45, 45, 48);
                     SwitchView("Shelf");
                 };
                 pnlShelfContainer.Controls.Add(btnShelf);
